@@ -4,7 +4,7 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { google } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import { cookies } from "next/headers";
 import { ALLMOXY_FIELD_MAP } from "@/lib/allmoxy/field-map";
 import { ALLMOXY_SITE_MAP } from "@/lib/allmoxy/site-map";
@@ -42,6 +42,20 @@ ${ALLMOXY_FIELD_MAP}
 ${ALLMOXY_SITE_MAP}
 `;
 
+function getChatModel() {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing DEEPSEEK_API_KEY");
+  }
+
+  const deepseek = createOpenAI({
+    apiKey,
+    baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
+  });
+
+  return deepseek(process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash");
+}
+
 export async function POST(request: Request) {
   const cookieStore = await cookies();
   const session = cookieStore.get(getSessionCookieName())?.value;
@@ -49,9 +63,9 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!process.env.DEEPSEEK_API_KEY) {
     return new Response(
-      "Missing GOOGLE_GENERATIVE_AI_API_KEY in .env.local",
+      "Missing DEEPSEEK_API_KEY in env. Create one at https://platform.deepseek.com",
       { status: 500 },
     );
   }
@@ -61,7 +75,7 @@ export async function POST(request: Request) {
 
   try {
     const result = streamText({
-      model: google(process.env.GOOGLE_MODEL ?? "gemini-3.5-flash-lite"),
+      model: getChatModel(),
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(messages),
       tools: allmoxyTools,
@@ -73,11 +87,11 @@ export async function POST(request: Request) {
       getErrorMessage: (error) => {
         const text =
           error instanceof Error ? error.message : "Chat request failed";
-        if (/quota|rate.?limit|RESOURCE_EXHAUSTED|429/i.test(text)) {
-          return "Gemini API quota exceeded (free tier). Wait a minute and retry, or enable billing / raise limits in Google AI Studio.";
+        if (/quota|rate.?limit|RESOURCE_EXHAUSTED|429|insufficient/i.test(text)) {
+          return "DeepSeek API quota/balance issue. Top up at https://platform.deepseek.com and retry.";
         }
-        if (/API.?key|401|403|unauth/i.test(text)) {
-          return "Gemini API key rejected. Check GOOGLE_GENERATIVE_AI_API_KEY in Vercel env.";
+        if (/API.?key|401|403|unauth|invalid/i.test(text)) {
+          return "DeepSeek API key rejected. Check DEEPSEEK_API_KEY in Vercel env.";
         }
         return text.slice(0, 300);
       },

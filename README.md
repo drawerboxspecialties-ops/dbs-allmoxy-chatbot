@@ -22,8 +22,9 @@ API keys stay on the server — teammates do **not** need their own keys.
 | `ALLMOXY_INSTANCE` | `dbs` |
 | `ALLMOXY_API_BASE_URL` | `https://api.allmoxy.com` |
 | `ALLMOXY_AUTH_URL` | `https://auth.allmoxy.com/oauth2/token` |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | required for chat (AI Studio) |
-| `GOOGLE_MODEL` | e.g. `gemini-2.0-flash` |
+| `DEEPSEEK_API_KEY` | required for chat ([platform.deepseek.com](https://platform.deepseek.com)) |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` |
 | `APP_PASSWORD` | shared team login password |
 | `APP_SESSION_SECRET` | long random string |
 | `ALLMOXY_CACHE_TTL_SECONDS` | `300` |
@@ -47,7 +48,7 @@ cp .env.example .env.local
 2. Fill in `.env.local`:
    - `ALLMOXY_CLIENT_ID` / `ALLMOXY_CLIENT_SECRET` from [dbs.allmoxy.com](https://dbs.allmoxy.com) → Settings → Integrations
    - `ALLMOXY_CONTACT_KEY` from Integrations → **Company Contacts** (create an Access Key for an employee; the table must not be empty)
-   - `GOOGLE_GENERATIVE_AI_API_KEY` for chat answers (from Google AI Studio)
+   - `DEEPSEEK_API_KEY` for chat answers (from [platform.deepseek.com](https://platform.deepseek.com); top up a few dollars)
    - `APP_PASSWORD` shared team password for the UI
    - `APP_SESSION_SECRET` long random string
 
