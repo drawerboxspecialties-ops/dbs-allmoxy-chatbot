@@ -34,19 +34,21 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form className="login-form" onSubmit={handleSubmit}>
-      <label htmlFor="password">Company password</label>
-      <input
-        id="password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Enter shared team password"
-        required
-      />
+      <div className="field">
+        <label htmlFor="password">Company password</label>
+        <input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Shared team access"
+          required
+        />
+      </div>
       {error ? <p className="form-error">{error}</p> : null}
       <button type="submit" disabled={loading || !password}>
-        {loading ? "Checking…" : "Enter ops chat"}
+        {loading ? "Checking…" : "Enter"}
       </button>
     </form>
   );

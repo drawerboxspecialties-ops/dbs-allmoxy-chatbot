@@ -39,7 +39,6 @@ export function ChatApp() {
   });
 
   useEffect(() => {
-    // Cookie presence is enough for UI; APIs enforce signature.
     fetch("/api/health/allmoxy")
       .then(async (res) => {
         if (res.status === 401) {
@@ -54,7 +53,7 @@ export function ChatApp() {
         };
         if (data.ok) {
           setHealth(
-            `Allmoxy connected · ${data.orders_total_entries ?? "?"} orders visible`,
+            `Allmoxy live · ${data.orders_total_entries ?? "?"} orders`,
           );
         } else {
           setHealth(data.error ?? "Allmoxy connection failed");
@@ -80,37 +79,44 @@ export function ChatApp() {
   }
 
   if (!checked) {
-    return <div className="boot">Loading…</div>;
+    return <div className="boot">Syncing ops channel</div>;
   }
 
   if (!authed) {
     return (
       <div className="shell">
-        <div className="login-panel">
-          <p className="eyebrow">Drawer Box Specialties</p>
-          <h1>DBS Ops Chat</h1>
-          <p className="lede">
-            Internal Allmoxy assistant for orders, customers, invoices, and
-            payments.
-          </p>
-          <LoginForm
-            onSuccess={() => {
-              setAuthed(true);
-              fetch("/api/health/allmoxy")
-                .then((res) => res.json())
-                .then((data) => {
-                  if (data.ok) {
-                    setHealth(
-                      `Allmoxy connected · ${data.orders_total_entries ?? "?"} orders visible`,
-                    );
-                  } else {
-                    setHealth(data.error ?? "Allmoxy connection failed");
-                  }
-                })
-                .catch(() => setHealth("Allmoxy health check failed"));
-            }}
-          />
-        </div>
+        <section className="login-stage">
+          <div className="brand-lockup">
+            <p className="brand-kicker">Drawer Box Specialties</p>
+            <h1 className="brand-title">
+              DBS
+              <span>Ops Chat</span>
+            </h1>
+            <p className="brand-lede">
+              Live Allmoxy intelligence for orders, customers, invoices, and
+              payments — built for the floor and the front office.
+            </p>
+          </div>
+          <div className="login-access">
+            <LoginForm
+              onSuccess={() => {
+                setAuthed(true);
+                fetch("/api/health/allmoxy")
+                  .then((res) => res.json())
+                  .then((data) => {
+                    if (data.ok) {
+                      setHealth(
+                        `Allmoxy live · ${data.orders_total_entries ?? "?"} orders`,
+                      );
+                    } else {
+                      setHealth(data.error ?? "Allmoxy connection failed");
+                    }
+                  })
+                  .catch(() => setHealth("Allmoxy health check failed"));
+              }}
+            />
+          </div>
+        </section>
       </div>
     );
   }
@@ -118,11 +124,14 @@ export function ChatApp() {
   const busy = status !== "ready";
 
   return (
-    <div className="shell chat-shell">
+    <div className="chat-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Drawer Box Specialties</p>
-          <h1>DBS Ops Chat</h1>
+          <p className="brand-kicker">Drawer Box Specialties</p>
+          <h1 className="brand-title">
+            DBS
+            <span>Ops Chat</span>
+          </h1>
         </div>
         <div className="topbar-actions">
           {health ? <span className="health">{health}</span> : null}
@@ -135,7 +144,11 @@ export function ChatApp() {
       <main className="chat-main">
         {messages.length === 0 ? (
           <section className="empty">
-            <p>Ask about a customer, order, invoice, or payment.</p>
+            <h2 className="empty-title">Ask the plant. Get the record.</h2>
+            <p className="empty-copy">
+              Order numbers, job names, customer codes, invoices, and payments —
+              answered from live Allmoxy data.
+            </p>
             <div className="suggestions">
               {SUGGESTIONS.map((suggestion) => (
                 <button
@@ -201,11 +214,11 @@ export function ChatApp() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. What’s the status of order 12345?"
+          placeholder="Ask about an order, customer, invoice, or payment…"
           disabled={busy}
         />
         <button type="submit" disabled={busy || !input.trim()}>
-          {busy ? "Working…" : "Send"}
+          {busy ? "Running…" : "Send"}
         </button>
       </form>
     </div>
