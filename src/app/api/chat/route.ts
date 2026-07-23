@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     });
 
     return result.toUIMessageStreamResponse({
-      getErrorMessage: (error) => {
+      onError: (error) => {
         const text =
           error instanceof Error ? error.message : "Chat request failed";
         if (/quota|rate.?limit|RESOURCE_EXHAUSTED|429|insufficient/i.test(text)) {
@@ -98,6 +98,15 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const text = error instanceof Error ? error.message : "Chat request failed";
+    if (/Missing DEEPSEEK_API_KEY/i.test(text)) {
+      return new Response(text, { status: 500 });
+    }
+    if (/quota|rate.?limit|429|insufficient/i.test(text)) {
+      return new Response(
+        "DeepSeek API quota/balance issue. Top up at https://platform.deepseek.com and retry.",
+        { status: 500 },
+      );
+    }
     return new Response(text.slice(0, 300), { status: 500 });
   }
 }
