@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { LoginForm } from "./login-form";
+import { MarkdownMessage } from "./markdown-message";
 
 const SUGGESTIONS = [
   "How many orders are in each status?",
@@ -174,6 +175,14 @@ export function ChatApp() {
                 </span>
                 {message.parts.map((part, index) => {
                   if (part.type === "text" && part.text) {
+                    if (message.role === "assistant") {
+                      return (
+                        <MarkdownMessage
+                          key={`${message.id}-${index}`}
+                          text={part.text}
+                        />
+                      );
+                    }
                     return (
                       <p key={`${message.id}-${index}`} className="text">
                         {part.text}
@@ -183,17 +192,25 @@ export function ChatApp() {
                   if (part.type.startsWith("tool-")) {
                     const state =
                       "state" in part ? String(part.state) : "running";
+                    // Only show active lookups; hide finished tool noise.
+                    if (state === "output-available" || state === "result") {
+                      return null;
+                    }
                     return (
                       <p
                         key={`${message.id}-${index}`}
                         className="tool-chip"
                       >
-                        {toolLabel(part.type)} · {state}
+                        Looking up {toolLabel(part.type)}…
                       </p>
                     );
                   }
                   return null;
                 })}
+                {!messageText(message.parts) &&
+                message.parts.some((p) => p.type.startsWith("tool-")) ? (
+                  <p className="text muted">Looking up Allmoxy…</p>
+                ) : null}
                 {!messageText(message.parts) &&
                 !message.parts.some((p) => p.type.startsWith("tool-")) ? (
                   <p className="text muted">…</p>
