@@ -1,0 +1,338 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #1c1712;
+  --bg-elevated: #2a221a;
+  --bg-panel: #342a20;
+  --ink: #f4ebe1;
+  --muted: #c4b4a3;
+  --line: rgba(244, 235, 225, 0.14);
+  --accent: #d9772c;
+  --accent-ink: #1c1712;
+  --user: #3d4f3a;
+  --danger: #ff8f7a;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
+  --font-sans: var(--font-source-sans);
+  --font-display: var(--font-fraunces);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-source-sans), "Segoe UI", sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(217, 119, 44, 0.22), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(90, 120, 90, 0.18), transparent 50%),
+    linear-gradient(180deg, #241c15 0%, var(--bg) 45%, #14100d 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.boot {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.chat-shell {
+  place-items: stretch;
+  grid-template-rows: auto 1fr auto;
+  max-width: 920px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+.login-panel,
+.topbar,
+.chat-main,
+.composer,
+.bubble {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, black);
+  box-shadow: var(--shadow);
+}
+
+.login-panel {
+  width: min(440px, 100%);
+  padding: 2rem;
+  border-radius: 18px;
+  animation: rise 420ms ease-out;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: 0.75rem 0 1.5rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.login-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.login-form label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.login-form input,
+.composer input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 0.85rem 1rem;
+  outline: none;
+}
+
+.login-form input:focus,
+.composer input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+}
+
+.login-form button,
+.composer button,
+.suggestions button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  padding: 0.85rem 1.2rem;
+  cursor: pointer;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.login-form button:hover,
+.composer button:hover,
+.suggestions button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.login-form button:disabled,
+.composer button:disabled,
+.suggestions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.form-error.banner {
+  margin: 0.75rem 1rem 0;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  animation: rise 360ms ease-out;
+}
+
+.topbar h1 {
+  font-size: 1.55rem;
+}
+
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.health {
+  color: var(--muted);
+  font-size: 0.82rem;
+  max-width: 320px;
+  text-align: right;
+}
+
+.ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.chat-main {
+  min-height: 0;
+  border-radius: 16px;
+  overflow: auto;
+  animation: rise 480ms ease-out;
+}
+
+.empty {
+  padding: 2rem 1.5rem;
+}
+
+.empty p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.suggestions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.suggestions button {
+  text-align: left;
+  border-radius: 12px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-weight: 500;
+}
+
+.messages {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.15rem;
+}
+
+.bubble {
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  box-shadow: none;
+  animation: fade-in 220ms ease-out;
+}
+
+.bubble.user {
+  background: color-mix(in srgb, var(--user) 70%, var(--bg-elevated));
+  justify-self: end;
+  max-width: min(85%, 640px);
+}
+
+.bubble.assistant {
+  background: var(--bg-panel);
+  max-width: min(95%, 720px);
+}
+
+.role {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.text {
+  margin: 0.2rem 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.text.muted {
+  color: var(--muted);
+}
+
+.tool-chip {
+  margin: 0.35rem 0 0;
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 16px;
+  animation: rise 520ms ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .health {
+    text-align: left;
+    max-width: none;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}
