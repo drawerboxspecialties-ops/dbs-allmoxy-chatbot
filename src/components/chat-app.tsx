@@ -80,7 +80,7 @@ export function ChatApp() {
   }
 
   if (!checked) {
-    return <div className="boot">Syncing ops channel</div>;
+    return <div className="boot">Starting Allmoxy chatbot</div>;
   }
 
   if (!authed) {
@@ -91,7 +91,7 @@ export function ChatApp() {
             <p className="brand-kicker">Drawer Box Specialties</p>
             <h1 className="brand-title">
               DBS
-              <span>Ops Chat</span>
+              <span>Allmoxy Chatbot</span>
             </h1>
             <p className="brand-lede">
               Live Allmoxy intelligence for orders, customers, invoices, and
@@ -131,7 +131,7 @@ export function ChatApp() {
           <p className="brand-kicker">Drawer Box Specialties</p>
           <h1 className="brand-title">
             DBS
-            <span>Ops Chat</span>
+            <span>Allmoxy Chatbot</span>
           </h1>
         </div>
         <div className="topbar-actions">
@@ -171,7 +171,7 @@ export function ChatApp() {
                 className={`bubble ${message.role === "user" ? "user" : "assistant"}`}
               >
                 <span className="role">
-                  {message.role === "user" ? "You" : "Ops Chat"}
+                  {message.role === "user" ? "You" : "Allmoxy Chatbot"}
                 </span>
                 {message.parts.map((part, index) => {
                   if (part.type === "text" && part.text) {

@@ -1,4 +1,4 @@
-# DBS Ops Chat
+# DBS Allmoxy Chatbot
 
 Internal, password-gated chatbot for Drawer Box Specialties staff. It uses your Allmoxy API credentials to answer questions about **orders, companies/customers, contacts, invoices, and payments**.
 

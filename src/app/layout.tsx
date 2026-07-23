@@ -15,7 +15,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "DBS Ops Chat",
+  title: "DBS Allmoxy Chatbot",
   description:
     "Company-only Allmoxy assistant for orders, customers, invoices, and payments.",
 };
