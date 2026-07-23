@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
   try {
     const result = streamText({
-      model: google(process.env.GOOGLE_MODEL ?? "gemini-3.5-flash"),
+      model: google(process.env.GOOGLE_MODEL ?? "gemini-3.5-flash-lite"),
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(messages),
       tools: allmoxyTools,
