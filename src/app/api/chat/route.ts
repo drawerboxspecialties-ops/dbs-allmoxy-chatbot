@@ -59,14 +59,31 @@ export async function POST(request: Request) {
   const body = (await request.json()) as { messages?: UIMessage[] };
   const messages = body.messages ?? [];
 
-  const result = streamText({
-    model: google(process.env.GOOGLE_MODEL ?? "gemini-2.5-flash"),
-    system: SYSTEM_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools: allmoxyTools,
-    // Fewer steps = fewer API round-trips while still allowing search → detail.
-    stopWhen: stepCountIs(5),
-  });
+  try {
+    const result = streamText({
+      model: google(process.env.GOOGLE_MODEL ?? "gemini-flash-latest"),
+      system: SYSTEM_PROMPT,
+      messages: await convertToModelMessages(messages),
+      tools: allmoxyTools,
+      // Fewer steps = fewer API round-trips while still allowing search → detail.
+      stopWhen: stepCountIs(5),
+    });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      getErrorMessage: (error) => {
+        const text =
+          error instanceof Error ? error.message : "Chat request failed";
+        if (/quota|rate.?limit|RESOURCE_EXHAUSTED|429/i.test(text)) {
+          return "Gemini API quota exceeded (free tier). Wait a minute and retry, or enable billing / raise limits in Google AI Studio.";
+        }
+        if (/API.?key|401|403|unauth/i.test(text)) {
+          return "Gemini API key rejected. Check GOOGLE_GENERATIVE_AI_API_KEY in Vercel env.";
+        }
+        return text.slice(0, 300);
+      },
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Chat request failed";
+    return new Response(text.slice(0, 300), { status: 500 });
+  }
 }
