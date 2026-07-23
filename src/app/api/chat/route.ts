@@ -50,10 +50,12 @@ function getChatModel() {
 
   const deepseek = createOpenAI({
     apiKey,
-    baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
+    // Include /v1 — OpenAI-compatible chat completions path.
+    baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com/v1",
   });
 
-  return deepseek(process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash");
+  // Must use .chat() — the default provider() uses OpenAI /responses (404 on DeepSeek).
+  return deepseek.chat(process.env.DEEPSEEK_MODEL ?? "deepseek-chat");
 }
 
 export async function POST(request: Request) {
