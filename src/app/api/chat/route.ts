@@ -66,7 +66,7 @@ function getChatModel() {
   });
 
   // Must use .chat() — the default provider() uses OpenAI /responses (404 on DeepSeek).
-  return deepseek.chat(process.env.DEEPSEEK_MODEL ?? "deepseek-chat");
+  return deepseek.chat(process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash");
 }
 
 export async function POST(request: Request) {
