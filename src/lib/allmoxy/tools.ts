@@ -1,6 +1,19 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { allmoxyFetch, toQuery, type AllmoxyListResponse } from "./client";
+import {
+  understandCompany,
+  understandCompanyListRow,
+  understandContact,
+  understandContactListRow,
+  understandInvoice,
+  understandInvoiceListRow,
+  understandOrder,
+  understandOrderListRow,
+  understandPayment,
+  understandPaymentListRow,
+  understandStatusCounts,
+} from "./understand";
 
 const paginationSchema = {
   page: z.number().int().min(1).optional().describe("Page number, default 1"),
@@ -23,7 +36,7 @@ function withSearchDefaults<T extends { per_page?: number; page?: number }>(
   };
 }
 
-function summarizeList<T extends Record<string, unknown>>(
+function summarizeUnderstood<T extends Record<string, unknown>>(
   data: AllmoxyListResponse<T>,
   pick: (entry: T) => Record<string, unknown>,
 ) {
@@ -33,15 +46,20 @@ function summarizeList<T extends Record<string, unknown>>(
     page_count: entries.length,
     total_pages: data.total_pages ?? data.pages,
     entries,
+    how_to_read:
+      "Each entry has summary (one-line) and facts (labeled fields). Prefer those over inventing values.",
   };
 }
+
+const ORDER_RELATED =
+  "company,contact,invoices,order_products,order_status_history,tags";
 
 export const allmoxyTools = {
   searchCompanies: tool({
     description:
-      "Search customer companies. UI shows 'Company Name - C######'. Search by name (includes C-code), email, website, status, or role.",
+      "Search customer companies. UI shows 'Company Name - C######'. Search by name (includes C-code), email, website, status, or role. Returns understood company facts.",
     inputSchema: z.object({
-      name: z.string().optional().describe("Company name (partial match)"),
+      name: z.string().optional().describe("Company name or C-code (partial match)"),
       email: z.string().optional(),
       website: z.string().optional(),
       status: z
@@ -59,34 +77,118 @@ export const allmoxyTools = {
       const data = await allmoxyFetch<AllmoxyListResponse<Record<string, unknown>>>(
         `/v2/companies${toQuery(withSearchDefaults(input))}`,
       );
-      return summarizeList(data, (c) => ({
-        company_id: c.company_id,
-        name: c.name,
-        email: c.email,
-        website: c.website,
-        status: c.status,
-        company_type: c.company_type,
-        role: c.role,
-      }));
+      return summarizeUnderstood(data, understandCompanyListRow);
     },
   }),
 
   getCompany: tool({
-    description: "Get one company by company_id.",
+    description:
+      "Get one company by company_id with interpreted payment terms, status, and C-code.",
     inputSchema: z.object({
       company_id: z.union([z.string(), z.number()]),
       related_objects: z.string().optional(),
     }),
     execute: async ({ company_id, related_objects }) => {
-      return allmoxyFetch(
+      const raw = await allmoxyFetch<Record<string, unknown>>(
         `/v2/companies/${company_id}${toQuery({ related_objects })}`,
       );
+      return understandCompany(raw);
+    },
+  }),
+
+  getCompanySnapshot: tool({
+    description:
+      "Best tool for a customer account overview: company profile + recent orders in one call. Use for 'tell me about company X / C-code / account'.",
+    inputSchema: z.object({
+      company_id: z
+        .union([z.string(), z.number()])
+        .optional()
+        .describe("Use when you already have company_id"),
+      name: z
+        .string()
+        .optional()
+        .describe("Company name or C-code when company_id unknown"),
+      recent_orders: z
+        .number()
+        .int()
+        .min(1)
+        .max(15)
+        .optional()
+        .describe("How many recent orders to include (default 8)"),
+    }),
+    execute: async ({ company_id, name, recent_orders }) => {
+      let companyRaw: Record<string, unknown> | null = null;
+      let resolvedId = company_id != null ? String(company_id) : null;
+
+      if (resolvedId) {
+        companyRaw = await allmoxyFetch<Record<string, unknown>>(
+          `/v2/companies/${resolvedId}`,
+        );
+      } else if (name?.trim()) {
+        const found = await allmoxyFetch<
+          AllmoxyListResponse<Record<string, unknown>>
+        >(
+          `/v2/companies${toQuery(
+            withSearchDefaults({ name: name.trim(), per_page: 5 }),
+          )}`,
+        );
+        const entries = found.entries ?? [];
+        if (entries.length === 0) {
+          return {
+            match_type: "none",
+            message: `No companies matched "${name.trim()}".`,
+          };
+        }
+        if (entries.length > 1) {
+          return {
+            match_type: "ambiguous",
+            message: "Multiple companies matched — ask which one, or pass company_id.",
+            matches: entries.map(understandCompanyListRow),
+          };
+        }
+        companyRaw = entries[0];
+        resolvedId = String(companyRaw.company_id ?? "");
+      } else {
+        return {
+          match_type: "error",
+          message: "Provide company_id or name.",
+        };
+      }
+
+      if (!companyRaw || !resolvedId) {
+        return { match_type: "none", message: "Company not found." };
+      }
+
+      const orders = await allmoxyFetch<
+        AllmoxyListResponse<Record<string, unknown>>
+      >(
+        `/v2/orders${toQuery(
+          withSearchDefaults({
+            company_id: resolvedId,
+            per_page: recent_orders ?? 8,
+            ordering: "-createddate",
+          }),
+        )}`,
+      );
+
+      const company = understandCompany(companyRaw);
+      const recent = summarizeUnderstood(orders, understandOrderListRow);
+
+      return {
+        match_type: "company",
+        company,
+        recent_orders: recent,
+        reading_tips: [
+          "Use company.facts for account terms; use recent_orders for current workload.",
+          "For invoice balance on a specific order, call findOrder/getOrder next.",
+        ],
+      };
     },
   }),
 
   searchContacts: tool({
     description:
-      "Search people/contacts by name, email, company_id, job title, or status.",
+      "Search people/contacts by name, email, company_id, job title, or status. Returns understood contact facts.",
     inputSchema: z.object({
       first_name: z.string().optional(),
       last_name: z.string().optional(),
@@ -107,35 +209,29 @@ export const allmoxyTools = {
       const data = await allmoxyFetch<AllmoxyListResponse<Record<string, unknown>>>(
         `/v2/contacts${toQuery(withSearchDefaults(input))}`,
       );
-      return summarizeList(data, (c) => ({
-        contact_id: c.contact_id,
-        first_name: c.first_name,
-        last_name: c.last_name,
-        email: c.email,
-        company_id: c.company_id,
-        job_title: c.job_title,
-        status: c.status,
-        contact_type: c.contact_type,
-      }));
+      return summarizeUnderstood(data, understandContactListRow);
     },
   }),
 
   getContact: tool({
-    description: "Get one contact by contact_id.",
+    description: "Get one contact by contact_id with interpreted name/company fields.",
     inputSchema: z.object({
       contact_id: z.union([z.string(), z.number()]),
       related_objects: z.string().optional(),
     }),
     execute: async ({ contact_id, related_objects }) => {
-      return allmoxyFetch(
-        `/v2/contacts/${contact_id}${toQuery({ related_objects })}`,
+      const raw = await allmoxyFetch<Record<string, unknown>>(
+        `/v2/contacts/${contact_id}${toQuery({
+          related_objects: related_objects ?? "company",
+        })}`,
       );
+      return understandContact(raw);
     },
   }),
 
   searchOrders: tool({
     description:
-      "Search orders/quotes. IMPORTANT: Allmoxy numeric order numbers (e.g. 603051) are order_id, NOT name. Job/PO labels like Ross or 26164A go in name. Prefer findOrder for a single number/label.",
+      "Search orders/quotes with interpreted status, ship date, and amounts. IMPORTANT: numeric Allmoxy order numbers are order_id — use findOrder for those. Job/PO labels go in name.",
     inputSchema: z.object({
       name: z
         .string()
@@ -159,7 +255,7 @@ export const allmoxyTools = {
         .string()
         .optional()
         .describe(
-          "e.g. company,contact,invoices,order_products,tags,order_status_history",
+          "Optional. Prefer omit on lists; use findOrder/getOrder for related data.",
         ),
       start_date_start: z.string().optional(),
       start_date_end: z.string().optional(),
@@ -175,25 +271,13 @@ export const allmoxyTools = {
       const data = await allmoxyFetch<AllmoxyListResponse<Record<string, unknown>>>(
         `/v2/orders${toQuery(withSearchDefaults(input))}`,
       );
-      return summarizeList(data, (o) => ({
-        order_id: o.order_id,
-        name: o.name,
-        status: o.status,
-        order_type: o.order_type,
-        company_id: o.company_id,
-        contact_id: o.contact_id,
-        price: o.price,
-        start_date: o.start_date,
-        finish_date: o.finish_date,
-        desired_delivery_date: o.desired_delivery_date,
-        actual_delivery_date: o.actual_delivery_date,
-      }));
+      return summarizeUnderstood(data, understandOrderListRow);
     },
   }),
 
   findOrder: tool({
     description:
-      "Best tool to look up one order by Allmoxy order number (order_id like 603051) OR by job/PO name (like Ross / 26164A). Tries order_id first when the query is numeric.",
+      "Best tool for one order. Pass Allmoxy order number (order_id like 603051) OR job/PO name (Ross / 26164A). Returns fully interpreted order facts, invoices, line items, and status history.",
     inputSchema: z.object({
       query: z
         .string()
@@ -201,14 +285,10 @@ export const allmoxyTools = {
       related_objects: z
         .string()
         .optional()
-        .describe(
-          "Recommended: company,contact,invoices,order_products,order_status_history,tags",
-        ),
+        .describe(`Default: ${ORDER_RELATED}`),
     }),
     execute: async ({ query, related_objects }) => {
-      const related =
-        related_objects ??
-        "company,contact,invoices,order_products,order_status_history,tags";
+      const related = related_objects ?? ORDER_RELATED;
       const trimmed = query.trim();
       const numericId = /^\d+$/.test(trimmed) ? trimmed : null;
 
@@ -219,44 +299,22 @@ export const allmoxyTools = {
           );
           return {
             match_type: "order_id",
-            order: {
-              order_id: byId.order_id,
-              name: byId.name,
-              status: byId.status,
-              order_type: byId.order_type,
-              company_id: byId.company_id,
-              contact_id: byId.contact_id,
-              price: byId.price,
-              start_date: byId.start_date,
-              finish_date: byId.finish_date,
-              desired_delivery_date: byId.desired_delivery_date,
-              actual_delivery_date: byId.actual_delivery_date,
-              company: byId.company,
-              contact: byId.contact,
-              invoices: byId.invoices,
-              order_products: byId.order_products,
-              order_status_history: byId.order_status_history,
-              tags: byId.tags,
-            },
+            order: understandOrder(byId),
           };
         } catch (error) {
-          // Fall through to name search if id lookup fails.
           const message =
             error instanceof Error ? error.message : "order_id lookup failed";
           const byName = await allmoxyFetch<
             AllmoxyListResponse<Record<string, unknown>>
-          >(`/v2/orders${toQuery(withSearchDefaults({ name: trimmed, per_page: 5 }))}`);
+          >(
+            `/v2/orders${toQuery(
+              withSearchDefaults({ name: trimmed, per_page: 5 }),
+            )}`,
+          );
           return {
             match_type: "name_fallback_after_order_id_miss",
             order_id_error: message,
-            ...summarizeList(byName, (o) => ({
-              order_id: o.order_id,
-              name: o.name,
-              status: o.status,
-              order_type: o.order_type,
-              company_id: o.company_id,
-              price: o.price,
-            })),
+            ...summarizeUnderstood(byName, understandOrderListRow),
           };
         }
       }
@@ -266,54 +324,47 @@ export const allmoxyTools = {
       );
       return {
         match_type: "name",
-        ...summarizeList(byName, (o) => ({
-          order_id: o.order_id,
-          name: o.name,
-          status: o.status,
-          order_type: o.order_type,
-          company_id: o.company_id,
-          contact_id: o.contact_id,
-          price: o.price,
-          start_date: o.start_date,
-          finish_date: o.finish_date,
-        })),
+        ...summarizeUnderstood(byName, understandOrderListRow),
       };
     },
   }),
 
   getOrder: tool({
     description:
-      "Get full details for one order by numeric Allmoxy order_id (e.g. 603051). Do not pass job names here.",
+      "Full interpreted details for one order by numeric Allmoxy order_id. Prefer findOrder unless you already know the id.",
     inputSchema: z.object({
       order_id: z.union([z.string(), z.number()]),
       related_objects: z
         .string()
         .optional()
-        .describe(
-          "Recommended: company,contact,invoices,order_products,order_status_history,tags",
-        ),
+        .describe(`Default: ${ORDER_RELATED}`),
     }),
     execute: async ({ order_id, related_objects }) => {
-      return allmoxyFetch(
+      const raw = await allmoxyFetch<Record<string, unknown>>(
         `/v2/orders/${order_id}${toQuery({
-          related_objects:
-            related_objects ??
-            "company,contact,invoices,order_products,order_status_history,tags",
+          related_objects: related_objects ?? ORDER_RELATED,
         })}`,
       );
+      return understandOrder(raw);
     },
   }),
 
   getOrderCountsByStatus: tool({
-    description: "Get counts of orders grouped by status.",
+    description:
+      "Get live counts of orders by status (portfolio totals). Use instead of paging all orders.",
     inputSchema: z.object({}),
-    execute: async () => allmoxyFetch("/v2/orders/counts_by_status"),
+    execute: async () => {
+      const raw = await allmoxyFetch("/v2/orders/counts_by_status");
+      return understandStatusCounts(raw);
+    },
   }),
 
   searchInvoices: tool({
     description:
-      "List invoices (orders, credit memos, finance charges, etc.). UI # is often the related order_id; AMOUNT→total; Paid→paid. Prefer order findOrder when staff ask about a specific order's invoice.",
+      "Search invoices with interpreted totals, paid, balance due, and payment state. Prefer findOrder when asking about one order's invoice. Filters: company_id, order_id, date range.",
     inputSchema: z.object({
+      company_id: z.union([z.string(), z.number()]).optional(),
+      order_id: z.union([z.string(), z.number()]).optional(),
       createddate_start: z.string().optional(),
       createddate_end: z.string().optional(),
       updateddate_start: z.string().optional(),
@@ -325,32 +376,26 @@ export const allmoxyTools = {
       const data = await allmoxyFetch<AllmoxyListResponse<Record<string, unknown>>>(
         `/v2/invoices${toQuery(withSearchDefaults(input))}`,
       );
-      return summarizeList(data, (i) => ({
-        invoice_id: i.invoice_id ?? i.iv_id,
-        order_id: i.order_id,
-        company_id: i.company_id,
-        total: i.total,
-        paid: i.paid,
-        subtotal: i.subtotal,
-        tax: i.tax,
-        shipping: i.shipping,
-        due_date: i.due_date,
-        createddate: i.createddate,
-      }));
+      return summarizeUnderstood(data, understandInvoiceListRow);
     },
   }),
 
   getInvoice: tool({
-    description: "Get one invoice by invoice id (iv_id).",
+    description: "Get one invoice by invoice id (iv_id) with balance/payment interpretation.",
     inputSchema: z.object({
       iv_id: z.union([z.string(), z.number()]),
     }),
-    execute: async ({ iv_id }) => allmoxyFetch(`/v2/invoices/${iv_id}`),
+    execute: async ({ iv_id }) => {
+      const raw = await allmoxyFetch<Record<string, unknown>>(
+        `/v2/invoices/${iv_id}`,
+      );
+      return understandInvoice(raw);
+    },
   }),
 
   searchPayments: tool({
     description:
-      "Search payment transactions by company, contact, type, bounced flag, or date range.",
+      "Search payment transactions with interpreted company, amount, type, bounced flag.",
     inputSchema: z.object({
       company_id: z.union([z.string(), z.number()]).optional(),
       contact_id: z.union([z.string(), z.number()]).optional(),
@@ -368,27 +413,20 @@ export const allmoxyTools = {
       const data = await allmoxyFetch<AllmoxyListResponse<Record<string, unknown>>>(
         `/v2/transactions${toQuery(withSearchDefaults(input))}`,
       );
-      return summarizeList(data, (t) => ({
-        transaction_id: t.transaction_id,
-        company_id: t.company_id,
-        contact_id: t.contact_id,
-        amount: t.amount,
-        transaction_type: t.transaction_type,
-        transaction_date: t.transaction_date,
-        ref_num: t.ref_num,
-        memo: t.memo,
-        bounced: t.bounced,
-        exported: t.exported,
-      }));
+      return summarizeUnderstood(data, understandPaymentListRow);
     },
   }),
 
   getPayment: tool({
-    description: "Get one payment transaction by transaction_id.",
+    description: "Get one payment transaction by transaction_id with interpreted fields.",
     inputSchema: z.object({
       transaction_id: z.union([z.string(), z.number()]),
     }),
-    execute: async ({ transaction_id }) =>
-      allmoxyFetch(`/v2/transactions/${transaction_id}`),
+    execute: async ({ transaction_id }) => {
+      const raw = await allmoxyFetch<Record<string, unknown>>(
+        `/v2/transactions/${transaction_id}`,
+      );
+      return understandPayment(raw);
+    },
   }),
 };

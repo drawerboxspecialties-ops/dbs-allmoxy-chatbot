@@ -60,7 +60,19 @@ export const ALLMOXY_FIELD_MAP = `
 ### Lookup rules for the assistant
 1. Pure number like 603051 ⇒ order_id via findOrder/getOrder.
 2. Text like Ross / 26164A ⇒ order name search.
-3. "C004321" or "Tony Cooper - C004321" ⇒ company name/account code search.
+3. "C004321" or "Tony Cooper - C004321" ⇒ getCompanySnapshot / company name search.
 4. Never tell staff that name is the order number; say "Order #603051 named Ross".
 5. Prefer staff wording: Order #, Company, Job/PO name, Ship date, Status, Invoice amount, Paid.
+
+### How to read tool data (important)
+Tools return *understood* objects, not raw Allmoxy dumps:
+- summary: one-line operational headline — safe to quote.
+- facts: labeled fields already mapped to UI language (status titles, money, dates, C-code).
+- reading_tips: hints about blanks/nulls (e.g. actual ship date missing).
+- List tools: entries[] each have summary + facts; also total_entries / total_pages.
+- Nested related data is pre-flattened: invoices[], line_items[], status_history[].
+- payment_state is computed: Unpaid | Partial | Paid from total vs paid.
+- balance_due = total - paid (never invent a different formula).
+- Null / missing fields mean "not set in Allmoxy" — say unknown/not set, do not guess.
+- Company grace_period: 0 ⇒ COD; >0 ⇒ Net X on account (even if payment_options is null).
 `;

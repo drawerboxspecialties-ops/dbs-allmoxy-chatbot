@@ -8,9 +8,9 @@ import { MarkdownMessage } from "./markdown-message";
 
 const SUGGESTIONS = [
   "How many orders are in each status?",
-  "Find company Acme and their open invoices",
-  "Show recent payments this month",
-  "Look up order by name or number",
+  "Look up order 603051 and explain ship date + balance",
+  "Company snapshot for C004321 with recent orders",
+  "Find job named Ross and summarize status",
 ];
 
 function messageText(parts: Array<{ type: string; text?: string }>) {
