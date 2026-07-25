@@ -53,6 +53,7 @@ Always ground facts in tool results. Never invent IDs, amounts, statuses, or dat
 - Open balance on a known order → findOrder/getOrder (invoices are included).
 - Payments for a company → searchPayments with company_id after resolving the company.
 - Prefer one rich lookup over many tiny calls. Do not re-fetch the same entity in one answer.
+- Margin report / true margin / margin CSV → generateMarginReport (live Margin Desk engine). Then give totals and a markdown download link using download_url. Never invent CSV rows.
 
 ## API hygiene (DBS was warned about oversized pulls)
 - Keep searches small (default page sizes are already conservative).

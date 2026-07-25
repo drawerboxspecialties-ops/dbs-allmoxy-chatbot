@@ -19,8 +19,8 @@ import { MicIcon } from "./mic-icon";
 const SUGGESTIONS = [
   "How many orders are in each status?",
   "Look up order 603051 and explain ship date + balance",
+  "Margin report for today by ship date with CSV",
   "Company snapshot for C004321 with recent orders",
-  "Remember: ship date means actual when set, else requested",
 ];
 
 function messageText(parts: Array<{ type: string; text?: string }>) {
@@ -32,6 +32,35 @@ function messageText(parts: Array<{ type: string; text?: string }>) {
 
 function toolLabel(type: string) {
   return type.replace(/^tool-/, "").replace(/([A-Z])/g, " $1");
+}
+
+function toolDownload(part: {
+  type: string;
+  output?: unknown;
+  result?: unknown;
+}) {
+  const raw =
+    part.output && typeof part.output === "object"
+      ? part.output
+      : part.result && typeof part.result === "object"
+        ? part.result
+        : null;
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as {
+    download_url?: unknown;
+    download_label?: unknown;
+    summary?: unknown;
+  };
+  const href = typeof data.download_url === "string" ? data.download_url : "";
+  if (!href) return null;
+  return {
+    href,
+    label:
+      typeof data.download_label === "string"
+        ? data.download_label
+        : "Download CSV",
+    summary: typeof data.summary === "string" ? data.summary : null,
+  };
 }
 
 function previousUserText(
@@ -377,7 +406,27 @@ export function ChatApp() {
                     const state =
                       "state" in part ? String(part.state) : "running";
                     if (state === "output-available" || state === "result") {
-                      return null;
+                      const file = toolDownload(
+                        part as {
+                          type: string;
+                          output?: unknown;
+                          result?: unknown;
+                        },
+                      );
+                      if (!file) return null;
+                      return (
+                        <div
+                          key={`${message.id}-${index}`}
+                          className="download-card"
+                        >
+                          {file.summary ? (
+                            <p className="download-summary">{file.summary}</p>
+                          ) : null}
+                          <a className="download-btn" href={file.href}>
+                            {file.label}
+                          </a>
+                        </div>
+                      );
                     }
                     return (
                       <p

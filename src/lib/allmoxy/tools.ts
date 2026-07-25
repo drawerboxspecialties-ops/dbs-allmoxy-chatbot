@@ -2,6 +2,10 @@ import { tool } from "ai";
 import { z } from "zod";
 import { allmoxyFetch, toQuery, type AllmoxyListResponse } from "./client";
 import {
+  buildMarginDeskQuery,
+  fetchMarginDeskReport,
+} from "@/lib/reports/margin-desk";
+import {
   understandCompany,
   understandCompanyListRow,
   understandContact,
@@ -427,6 +431,84 @@ export const allmoxyTools = {
         `/v2/transactions/${transaction_id}`,
       );
       return understandPayment(raw);
+    },
+  }),
+
+  generateMarginReport: tool({
+    description:
+      "Build the live DBS Margin Desk true-gross-margin report (same engine as dbs-shipping-report /margin). Use when staff ask for a margin report, true margin CSV, margin by ship/order date, or margin for an order/customer/job. Returns totals + a download_url for CSV. Prefer date ranges of a day/week/month — not all history. Date mode needs start+end YYYY-MM-DD.",
+    inputSchema: z.object({
+      mode: z
+        .enum(["date", "orderNumber", "orderName", "customer"])
+        .describe("How to look up orders"),
+      start: z
+        .string()
+        .optional()
+        .describe("YYYY-MM-DD start (required for date mode)"),
+      end: z
+        .string()
+        .optional()
+        .describe("YYYY-MM-DD end (required for date mode)"),
+      dateField: z
+        .enum(["ship", "order"])
+        .optional()
+        .describe("ship = actual ship date (default), order = created date"),
+      query: z
+        .string()
+        .optional()
+        .describe(
+          "Order number, order/job name, or customer name/C-code for non-date modes",
+        ),
+    }),
+    execute: async (input) => {
+      if (input.mode === "date") {
+        if (!input.start || !input.end) {
+          return {
+            error: "Date mode needs start and end as YYYY-MM-DD.",
+          };
+        }
+      } else if (!input.query?.trim()) {
+        return {
+          error: "This mode needs a query (order #, job name, or customer).",
+        };
+      }
+
+      try {
+        const report = await fetchMarginDeskReport({
+          mode: input.mode,
+          start: input.start,
+          end: input.end,
+          dateField: input.dateField ?? "ship",
+          query: input.query,
+        });
+        const params = buildMarginDeskQuery({
+          mode: input.mode,
+          start: input.start,
+          end: input.end,
+          dateField: input.dateField ?? "ship",
+          query: input.query,
+          format: "csv",
+        });
+        const download_url = `/api/reports/margin?${params.toString()}`;
+        const t = report.totals;
+        return {
+          ok: true,
+          summary: `True margin ${t.marginPct.toFixed(1)}% on $${t.revenue.toFixed(0)} sales · ${t.orderCount} orders · ${t.lineCount} lines · $${t.profit.toFixed(0)} gross profit`,
+          totals: t,
+          insights: (report.insights ?? []).slice(0, 4),
+          download_url,
+          download_label: "Download margin CSV",
+          how_to_answer:
+            "Share the headline totals in plain DBS language, then include the download_url as a markdown link like [Download margin CSV](download_url). Do not invent line items.",
+        };
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Margin Desk report failed",
+        };
+      }
     },
   }),
 };
