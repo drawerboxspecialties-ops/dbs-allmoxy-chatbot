@@ -74,5 +74,6 @@ Tools return *understood* objects, not raw Allmoxy dumps:
 - payment_state is computed: Unpaid | Partial | Paid from total vs paid.
 - balance_due = total - paid (never invent a different formula).
 - Null / missing fields mean "not set in Allmoxy" — say unknown/not set, do not guess.
+- If a tool returns zero matches or an error, tell the user that. Never fabricate an order, company, balance, or date.
 - Company grace_period: 0 ⇒ COD; >0 ⇒ Net X on account (even if payment_options is null).
 `;

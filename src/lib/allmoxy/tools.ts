@@ -51,7 +51,7 @@ function summarizeUnderstood<T extends Record<string, unknown>>(
     total_pages: data.total_pages ?? data.pages,
     entries,
     how_to_read:
-      "Each entry has summary (one-line) and facts (labeled fields). Prefer those over inventing values.",
+      "Each entry has summary (one-line) and facts (labeled fields). Only report these values. If empty or missing, say not found — never invent.",
   };
 }
 
