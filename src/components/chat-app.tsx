@@ -11,8 +11,10 @@ import {
   upsertLocalLearning,
 } from "@/lib/learning/client";
 import type { LearningEntry } from "@/lib/learning/types";
+import { appendTranscript } from "@/lib/voice/polish-transcript";
 import { LoginForm } from "./login-form";
 import { MarkdownMessage } from "./markdown-message";
+import { MicIcon } from "./mic-icon";
 
 const SUGGESTIONS = [
   "How many orders are in each status?",
@@ -84,7 +86,7 @@ export function ChatApp() {
   const voice = useVoiceTyping({
     onTranscript: (text, isFinal) => {
       if (isFinal) {
-        const merged = `${baseInputRef.current} ${text}`.replace(/\s+/g, " ").trim();
+        const merged = appendTranscript(baseInputRef.current, text);
         baseInputRef.current = merged;
         setInput(merged);
         setVoiceDraft("");
@@ -474,28 +476,6 @@ export function ChatApp() {
       </main>
 
       <form className="composer" onSubmit={handleSubmit}>
-        <button
-          type="button"
-          className={`mic-btn ${voice.listening ? "listening" : ""}`}
-          onClick={() => {
-            if (!voice.listening) {
-              baseInputRef.current = input.trim();
-              setVoiceDraft("");
-            }
-            voice.toggle();
-          }}
-          disabled={!voice.supported || busy}
-          title={
-            voice.supported
-              ? voice.listening
-                ? "Stop voice typing"
-                : "Start voice typing"
-              : "Voice typing needs Chrome or Edge"
-          }
-          aria-label={voice.listening ? "Stop voice typing" : "Start voice typing"}
-        >
-          {voice.listening ? "Listening…" : "Mic"}
-        </button>
         <input
           value={composerValue}
           onChange={(e) => {
@@ -505,14 +485,38 @@ export function ChatApp() {
           }}
           placeholder={
             voice.listening
-              ? "Listening — speak your question…"
+              ? "Listening — speak clearly (order #, C-code, job name)…"
               : "Ask about an order, customer, invoice, or payment…"
           }
           disabled={busy}
         />
-        <button type="submit" disabled={busy || !composerValue.trim()}>
-          {busy ? "Running…" : "Send"}
-        </button>
+        <div className="composer-actions">
+          <button
+            type="button"
+            className={`mic-btn ${voice.listening ? "listening" : ""}`}
+            onClick={() => {
+              if (!voice.listening) {
+                baseInputRef.current = input.trim();
+                setVoiceDraft("");
+              }
+              voice.toggle();
+            }}
+            disabled={!voice.supported || busy}
+            title={
+              voice.supported
+                ? voice.listening
+                  ? "Stop listening"
+                  : "Voice type"
+                : "Voice typing needs Chrome or Edge"
+            }
+            aria-label={voice.listening ? "Stop listening" : "Voice type"}
+          >
+            <MicIcon listening={voice.listening} />
+          </button>
+          <button type="submit" disabled={busy || !composerValue.trim()}>
+            {busy ? "Running…" : "Send"}
+          </button>
+        </div>
       </form>
     </div>
   );
