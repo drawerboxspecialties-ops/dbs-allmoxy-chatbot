@@ -539,7 +539,7 @@ input {
 
 .composer {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 0.65rem;
   padding: 0.75rem;
   border: 1px solid var(--line-strong);
@@ -548,8 +548,137 @@ input {
   backdrop-filter: blur(10px);
 }
 
-.composer button {
+.composer button[type="submit"] {
   min-width: 6.5rem;
+}
+
+.mic-btn {
+  min-width: 5.5rem;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.mic-btn.listening {
+  border-color: color-mix(in srgb, var(--danger) 45%, white);
+  background: color-mix(in srgb, var(--danger) 10%, white);
+  color: var(--danger);
+  animation: pulse-line 1.2s ease-in-out infinite;
+}
+
+.mic-btn:disabled {
+  opacity: 0.55;
+}
+
+.learn-chip {
+  background: var(--accent-wash) !important;
+}
+
+.teach-panel {
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.teach-panel h2 {
+  margin: 0;
+  font-family: var(--font-syne), sans-serif;
+  font-size: 1.05rem;
+}
+
+.teach-panel p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.teach-panel code {
+  font-size: 0.82rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: var(--accent-wash);
+}
+
+.teach-form {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 0.55rem;
+}
+
+.teach-form input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+}
+
+.teach-status {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.feedback-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+  align-items: center;
+}
+
+.feedback-btn {
+  min-width: 0;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  border-radius: 999px;
+}
+
+.feedback-note {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.feedback-note input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.feedback-note button {
+  min-width: 0;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .teach-form {
+    grid-template-columns: 1fr;
+  }
+
+  .composer {
+    grid-template-columns: auto 1fr;
+  }
+
+  .composer button[type="submit"] {
+    grid-column: 1 / -1;
+  }
 }
 
 @keyframes rise {

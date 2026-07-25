@@ -1,0 +1,35 @@
+[
+  {
+    "id": "seed-order-vs-name",
+    "kind": "fact",
+    "trigger": "order number vs name",
+    "content": "Numeric values like 603051 are Allmoxy order_id (Order #). Labels like Ross or 26164A are the job/PO name field.",
+    "helpful": 3,
+    "unhelpful": 0,
+    "source": "staff",
+    "createdAt": "2026-07-25T00:00:00.000Z",
+    "updatedAt": "2026-07-25T00:00:00.000Z"
+  },
+  {
+    "id": "seed-ship-dates",
+    "kind": "fact",
+    "trigger": "ship date",
+    "content": "Prefer actual_delivery_date when set; otherwise say requested ship date from desired_delivery_date and note actual is blank.",
+    "helpful": 3,
+    "unhelpful": 0,
+    "source": "staff",
+    "createdAt": "2026-07-25T00:00:00.000Z",
+    "updatedAt": "2026-07-25T00:00:00.000Z"
+  },
+  {
+    "id": "seed-answer-style",
+    "kind": "preference",
+    "trigger": "answer format",
+    "content": "Lead with Order # and status, then short labeled bullets. No wide tables. No tool narration.",
+    "helpful": 2,
+    "unhelpful": 0,
+    "source": "staff",
+    "createdAt": "2026-07-25T00:00:00.000Z",
+    "updatedAt": "2026-07-25T00:00:00.000Z"
+  }
+]
