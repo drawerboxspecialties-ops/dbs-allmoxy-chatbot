@@ -579,6 +579,20 @@ export function ChatApp() {
         <div className="composer-actions">
           <button
             type="button"
+            className="clear-btn"
+            onClick={() => {
+              setInput("");
+              setVoiceDraft("");
+              baseInputRef.current = "";
+            }}
+            disabled={busy || voicePolishing || !composerValue.trim()}
+            title="Clear text in the box"
+            aria-label="Clear text"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
             className={`mic-btn ${voice.listening ? "listening" : ""}`}
             onClick={() => {
               if (!voice.listening) {

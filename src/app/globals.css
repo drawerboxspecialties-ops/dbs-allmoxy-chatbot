@@ -565,6 +565,23 @@ input {
   min-width: 6.5rem;
 }
 
+.composer .clear-btn {
+  min-width: 4.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink-soft);
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.composer .clear-btn:hover:not(:disabled) {
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+  transform: translateY(-1px);
+}
+
 .composer .mic-btn {
   width: 3.15rem;
   min-width: 3.15rem;
