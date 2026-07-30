@@ -114,23 +114,27 @@ export function ChatApp() {
   });
 
   const voice = useVoiceTyping({
-    onTranscript: (text, isFinal) => {
+    onBusyChange: setVoicePolishing,
+    onTranscript: (text, isFinal, meta) => {
       if (!isFinal) {
         setVoiceDraft(text);
         return;
       }
 
       setVoiceDraft("");
-      const mergedLocal = appendTranscript(baseInputRef.current, text);
-      baseInputRef.current = mergedLocal;
-      setInput(mergedLocal);
+      const merged = appendTranscript(baseInputRef.current, text);
+      baseInputRef.current = merged;
+      setInput(merged);
 
-      // Second pass: DeepSeek cleans shop-floor STT without inventing facts.
+      // Whisper/Gemini path is already polished server-side.
+      if (meta?.engine === "whisper") return;
+
+      // Browser STT: second-pass DeepSeek cleanup.
       setVoicePolishing(true);
       void fetch("/api/voice/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: mergedLocal }),
+        body: JSON.stringify({ text: merged }),
       })
         .then(async (res) => {
           if (!res.ok) return;
@@ -545,7 +549,11 @@ export function ChatApp() {
           <p className="form-error banner">{voice.error}</p>
         ) : null}
         {voicePolishing ? (
-          <p className="banner muted">Cleaning up voice transcript…</p>
+          <p className="banner muted">
+            {voice.mode === "whisper"
+              ? "Transcribing with AI speech engine…"
+              : "Cleaning up voice transcript…"}
+          </p>
         ) : null}
       </main>
 
@@ -559,9 +567,11 @@ export function ChatApp() {
           }}
           placeholder={
             voice.listening
-              ? "Listening — say one clear question, then pause…"
+              ? voice.mode === "whisper"
+                ? "Recording — click mic again when done…"
+                : "Listening — say one clear question, then pause…"
               : voicePolishing
-                ? "Cleaning voice text…"
+                ? "Transcribing voice…"
                 : "Ask about an order, customer, invoice, or payment…"
           }
           disabled={busy || voicePolishing}
@@ -581,11 +591,13 @@ export function ChatApp() {
             title={
               voice.supported
                 ? voice.listening
-                  ? "Stop listening"
-                  : "Voice type (one question, then pause)"
-                : "Voice typing needs Chrome or Edge"
+                  ? "Stop recording"
+                  : voice.mode === "whisper"
+                    ? `Voice type (${voice.engineLabel}) — click, speak, click stop`
+                    : "Voice type (browser) — one question, then pause"
+                : "Microphone not available"
             }
-            aria-label={voice.listening ? "Stop listening" : "Voice type"}
+            aria-label={voice.listening ? "Stop recording" : "Voice type"}
           >
             <MicIcon listening={voice.listening} />
           </button>
