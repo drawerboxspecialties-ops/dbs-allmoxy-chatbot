@@ -42,34 +42,25 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-function bestAlternative(result: SpeechRecognitionResultLike): string {
-  let best = result[0]?.transcript ?? "";
-  let bestScore = result[0]?.confidence ?? -1;
-  for (let i = 1; i < result.length; i += 1) {
-    const alt = result[i];
-    const score = alt?.confidence ?? -1;
-    if (score > bestScore) {
-      best = alt.transcript;
-      bestScore = score;
-    }
-  }
-  return best;
-}
-
 function preferOpsAlternative(result: SpeechRecognitionResultLike): string {
-  // Prefer alternatives that look like order #s / C-codes when confidence is close.
-  let chosen = bestAlternative(result);
+  let chosen = result[0]?.transcript ?? "";
   let chosenScore = result[0]?.confidence ?? 0;
+
   const opsHint =
-    /\b(?:order|c\d{4,}|\d{5,7}|allmoxy|invoice|ship|company|status)\b/i;
+    /\b(?:order|c\d{4,}|\d{5,7}|allmoxy|invoice|ship|company|status|margin|csv|snapshot)\b/i;
+  const digitHeavy = /(?:\b(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)\b.*){3,}/i;
 
   for (let i = 0; i < result.length; i += 1) {
     const alt = result[i];
     if (!alt?.transcript) continue;
     const score = alt.confidence ?? 0;
-    if (opsHint.test(alt.transcript) && score + 0.08 >= chosenScore) {
+    let boosted = score;
+    if (opsHint.test(alt.transcript)) boosted += 0.12;
+    if (digitHeavy.test(alt.transcript)) boosted += 0.06;
+    if (/\b\d{5,7}\b/.test(alt.transcript)) boosted += 0.1;
+    if (boosted > chosenScore) {
       chosen = alt.transcript;
-      chosenScore = score;
+      chosenScore = boosted;
     }
   }
   return chosen;
@@ -84,7 +75,6 @@ export function useVoiceTyping(options: {
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wantListenRef = useRef(false);
-  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onTranscriptRef = useRef(options.onTranscript);
   onTranscriptRef.current = options.onTranscript;
 
@@ -92,16 +82,8 @@ export function useVoiceTyping(options: {
     setSupported(Boolean(getSpeechRecognition()));
   }, []);
 
-  const clearRestart = () => {
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
-    }
-  };
-
   const stop = useCallback(() => {
     wantListenRef.current = false;
-    clearRestart();
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
     try {
@@ -119,19 +101,27 @@ export function useVoiceTyping(options: {
   const start = useCallback(() => {
     const Ctor = getSpeechRecognition();
     if (!Ctor) {
-      setError("Voice typing needs Chrome or Edge.");
+      setError("Voice typing needs Chrome or Edge on desktop.");
       return;
     }
 
-    clearRestart();
     setError(null);
     wantListenRef.current = true;
 
+    // Tear down any prior instance first.
+    try {
+      recognitionRef.current?.abort();
+    } catch {
+      // ignore
+    }
+
     const recognition = new Ctor();
-    recognition.continuous = true;
+    // Utterance mode: one phrase per mic press. Much more accurate than
+    // continuous Chrome sessions that restart and garble mid-sentence.
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = options.lang ?? "en-US";
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 5;
 
     recognition.onstart = () => {
       setListening(true);
@@ -164,18 +154,19 @@ export function useVoiceTyping(options: {
 
     recognition.onerror = (event) => {
       const code = event.error || "voice error";
-      // Benign / recoverable — keep session alive when possible.
       if (code === "aborted" || code === "no-speech") {
         return;
       }
       if (code === "not-allowed" || code === "service-not-allowed") {
-        setError("Microphone permission blocked. Allow mic access and try again.");
+        setError("Microphone blocked. Allow mic access in the browser and retry.");
         wantListenRef.current = false;
         setListening(false);
         return;
       }
       if (code === "network") {
-        setError("Voice service network issue — retrying…");
+        setError("Voice network error. Check connection and try again.");
+        wantListenRef.current = false;
+        setListening(false);
         return;
       }
       if (code === "audio-capture") {
@@ -188,20 +179,9 @@ export function useVoiceTyping(options: {
     };
 
     recognition.onend = () => {
-      // Chrome ends recognition after pauses — auto-resume while armed.
-      if (!wantListenRef.current) {
-        setListening(false);
-        return;
-      }
-      clearRestart();
-      restartTimerRef.current = setTimeout(() => {
-        if (!wantListenRef.current) return;
-        try {
-          recognition.start();
-        } catch {
-          setListening(false);
-        }
-      }, 180);
+      wantListenRef.current = false;
+      recognitionRef.current = null;
+      setListening(false);
     };
 
     recognitionRef.current = recognition;
@@ -209,7 +189,7 @@ export function useVoiceTyping(options: {
       recognition.start();
       setListening(true);
     } catch {
-      setError("Could not start microphone.");
+      setError("Could not start microphone. Click mic again.");
       wantListenRef.current = false;
       setListening(false);
     }
@@ -223,7 +203,6 @@ export function useVoiceTyping(options: {
   useEffect(
     () => () => {
       wantListenRef.current = false;
-      clearRestart();
       try {
         recognitionRef.current?.abort();
       } catch {

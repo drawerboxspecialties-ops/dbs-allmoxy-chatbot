@@ -529,6 +529,12 @@ input {
   letter-spacing: 0.02em;
 }
 
+.banner.muted {
+  margin: 0.5rem 1rem 0;
+  color: #5d6d67;
+  font-size: 0.9rem;
+}
+
 .form-error.banner {
   margin: 0.5rem 0 0;
   padding: 0.7rem 0.85rem;

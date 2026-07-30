@@ -7,14 +7,20 @@ const PHRASE_FIXES: Array<[RegExp, string]> = [
   [/\ball\s*mox(?:y|ie)\b/gi, "Allmoxy"],
   [/\bal\s*mox(?:y|ie)\b/gi, "Allmoxy"],
   [/\balmoxy\b/gi, "Allmoxy"],
+  [/\bdrawer\s*box(?:es)?\b/gi, "drawer box"],
+  [/\bmargin\s*desk\b/gi, "margin desk"],
+  [/\btrue\s*margin\b/gi, "true margin"],
+  [/\bmargin\s*report\b/gi, "margin report"],
   [/\bsee\s*code\b/gi, "C-code"],
   [/\bc\s*code\b/gi, "C-code"],
   [/\bcustomer\s*code\b/gi, "C-code"],
   [/\bsea\s*code\b/gi, "C-code"],
   [/\bin\s*voices?\b/gi, "invoices"],
+  [/\bin\s*voice\b/gi, "invoice"],
   [/\binvoice\s*is\b/gi, "invoices"],
   [/\bship\s*date\b/gi, "ship date"],
   [/\bshipping\s*date\b/gi, "ship date"],
+  [/\bactual\s*ship(?:ping)?\s*date\b/gi, "actual ship date"],
   [/\bin\s*progress\b/gi, "In Progress"],
   [/\bon\s*hold\b/gi, "On Hold"],
   [/\border\s*number\b/gi, "order"],
@@ -26,52 +32,74 @@ const PHRASE_FIXES: Array<[RegExp, string]> = [
   [/\bold\s*dominion\b/gi, "Old Dominion"],
   [/\bnew\s*mark\b/gi, "Numark"],
   [/\bnewmark\b/gi, "Numark"],
+  [/\bthis\s*week\b/gi, "this week"],
+  [/\bthis\s*month\b/gi, "this month"],
+  [/\bdownload\s*c\s*s\s*v\b/gi, "download CSV"],
+  [/\bsee\s*s\s*v\b/gi, "CSV"],
+  [/\bcsv\b/gi, "CSV"],
 ];
 
+/** Only map digit words inside an explicit spoken-number run (not free "to"/"for"). */
 const DIGIT_WORDS: Record<string, string> = {
   zero: "0",
   oh: "0",
   o: "0",
   one: "1",
   two: "2",
-  to: "2",
-  too: "2",
   three: "3",
   four: "4",
-  for: "4",
   five: "5",
   six: "6",
   seven: "7",
   eight: "8",
-  ate: "8",
   nine: "9",
 };
 
 function collapseSpokenDigits(text: string): string {
-  // "six zero three zero five one" → "603051" when 4+ digit words in a row
-  return text.replace(
-    /\b(?:zero|oh|o|one|two|to|too|three|four|for|five|six|seven|eight|ate|nine)(?:\s+(?:zero|oh|o|one|two|to|too|three|four|for|five|six|seven|eight|ate|nine)){3,}\b/gi,
+  // Prefer collapsing after "order" / "C" / "#" cues (3+ digits).
+  let out = text.replace(
+    /\b(?:order\s*#?|c(?:-)?code|c|#)\s*((?:zero|oh|o|one|two|three|four|five|six|seven|eight|nine)(?:\s+(?:zero|oh|o|one|two|three|four|five|six|seven|eight|nine)){2,})\b/gi,
+    (full, digits: string) => {
+      const num = digits
+        .split(/\s+/)
+        .map((w) => DIGIT_WORDS[w.toLowerCase()] ?? "")
+        .join("");
+      if (/^order/i.test(full)) return `order ${num}`;
+      if (/^c/i.test(full) || /^#/.test(full.trim())) {
+        if (/^c/i.test(full.trim())) return `C${num}`;
+        return `order ${num}`;
+      }
+      return num;
+    },
+  );
+
+  // Standalone 5–7 digit spoken runs (typical order numbers).
+  out = out.replace(
+    /\b(?:zero|oh|o|one|two|three|four|five|six|seven|eight|nine)(?:\s+(?:zero|oh|o|one|two|three|four|five|six|seven|eight|nine)){4,6}\b/gi,
     (match) =>
       match
         .split(/\s+/)
         .map((w) => DIGIT_WORDS[w.toLowerCase()] ?? "")
         .join(""),
   );
+
+  return out;
 }
 
 function normalizeCCodes(text: string): string {
-  // "C 004321", "see 004321", "c-004321" → "C004321"
   return text
     .replace(/\b(?:c|see|sea)\s*[- ]?\s*(\d{4,6})\b/gi, "C$1")
     .replace(/\bC\s+(\d{4,6})\b/g, "C$1");
 }
 
 function normalizeOrderRefs(text: string): string {
-  // "order 603 051" / "order # 603051" → "order 603051"
   return text
     .replace(/\border\s*#?\s*(\d{3})\s*(\d{3})\b/gi, "order $1$2")
+    .replace(/\border\s*#?\s*(\d{2})\s*(\d{2})\s*(\d{2})\b/gi, "order $1$2$3")
     .replace(/\border\s*#?\s*(\d{5,7})\b/gi, "order $1")
-    .replace(/\b#\s*(\d{5,7})\b/g, "order $1");
+    .replace(/\b#\s*(\d{5,7})\b/g, "order $1")
+    // "603 051" near order context already handled; also glue bare 3+3 digit pairs
+    .replace(/\b(\d{3})\s+(\d{3})\b/g, "$1$2");
 }
 
 function tidySpacing(text: string): string {
@@ -105,9 +133,8 @@ export function polishTranscript(raw: string, opts?: { final?: boolean }): strin
 
   if (opts?.final) {
     text = capitalizeSentence(text);
-    // Soft end punctuation for questions
     if (
-      /^(how|what|when|where|who|which|why|can|could|is|are|do|does|did|show|find|look|tell|give)\b/i.test(
+      /^(how|what|when|where|who|which|why|can|could|is|are|do|does|did|show|find|look|tell|give|run|pull|get|make)\b/i.test(
         text,
       ) &&
       !/[.!?]$/.test(text)
@@ -131,7 +158,6 @@ export function appendTranscript(base: string, chunk: string): string {
   if (leftLower.endsWith(rightLower)) return left;
   if (rightLower.startsWith(leftLower)) return right;
 
-  // If the new chunk overlaps the end of the base, stitch cleanly.
   const max = Math.min(left.length, right.length);
   for (let n = max; n >= 8; n -= 1) {
     if (leftLower.slice(-n) === rightLower.slice(0, n)) {

@@ -89,6 +89,7 @@ export function ChatApp() {
   const [feedbackNote, setFeedbackNote] = useState<Record<string, string>>({});
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
   const [voiceDraft, setVoiceDraft] = useState("");
+  const [voicePolishing, setVoicePolishing] = useState(false);
   const baseInputRef = useRef("");
   const learningsRef = useRef<LearningEntry[]>([]);
 
@@ -114,14 +115,35 @@ export function ChatApp() {
 
   const voice = useVoiceTyping({
     onTranscript: (text, isFinal) => {
-      if (isFinal) {
-        const merged = appendTranscript(baseInputRef.current, text);
-        baseInputRef.current = merged;
-        setInput(merged);
-        setVoiceDraft("");
-      } else {
+      if (!isFinal) {
         setVoiceDraft(text);
+        return;
       }
+
+      setVoiceDraft("");
+      const mergedLocal = appendTranscript(baseInputRef.current, text);
+      baseInputRef.current = mergedLocal;
+      setInput(mergedLocal);
+
+      // Second pass: DeepSeek cleans shop-floor STT without inventing facts.
+      setVoicePolishing(true);
+      void fetch("/api/voice/polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: mergedLocal }),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = (await res.json()) as { text?: string };
+          const cleaned = String(data.text ?? "").trim();
+          if (!cleaned) return;
+          baseInputRef.current = cleaned;
+          setInput(cleaned);
+        })
+        .catch(() => {
+          // Keep local polish if AI cleanup fails.
+        })
+        .finally(() => setVoicePolishing(false));
     },
   });
 
@@ -522,6 +544,9 @@ export function ChatApp() {
         {voice.error ? (
           <p className="form-error banner">{voice.error}</p>
         ) : null}
+        {voicePolishing ? (
+          <p className="banner muted">Cleaning up voice transcript…</p>
+        ) : null}
       </main>
 
       <form className="composer" onSubmit={handleSubmit}>
@@ -534,10 +559,12 @@ export function ChatApp() {
           }}
           placeholder={
             voice.listening
-              ? "Listening — speak clearly (order #, C-code, job name)…"
-              : "Ask about an order, customer, invoice, or payment…"
+              ? "Listening — say one clear question, then pause…"
+              : voicePolishing
+                ? "Cleaning voice text…"
+                : "Ask about an order, customer, invoice, or payment…"
           }
-          disabled={busy}
+          disabled={busy || voicePolishing}
         />
         <div className="composer-actions">
           <button
@@ -550,12 +577,12 @@ export function ChatApp() {
               }
               voice.toggle();
             }}
-            disabled={!voice.supported || busy}
+            disabled={!voice.supported || busy || voicePolishing}
             title={
               voice.supported
                 ? voice.listening
                   ? "Stop listening"
-                  : "Voice type"
+                  : "Voice type (one question, then pause)"
                 : "Voice typing needs Chrome or Edge"
             }
             aria-label={voice.listening ? "Stop listening" : "Voice type"}
