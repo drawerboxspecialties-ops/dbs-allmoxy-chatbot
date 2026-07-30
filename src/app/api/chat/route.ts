@@ -19,6 +19,7 @@ import {
   getSessionCookieName,
   isValidSessionCookie,
 } from "@/lib/auth/session";
+import { pacificNowContext } from "@/lib/date/pacific-now";
 
 export const maxDuration = 60;
 
@@ -62,6 +63,7 @@ Help staff get accurate answers fast: order status, ship dates, customer account
 - Payments for a company → searchPayments with company_id after resolving the company.
 - Prefer one rich lookup over many tiny calls. Do not re-fetch the same entity in one answer.
 - Margin report / true margin / margin CSV → generateMarginReport (live Margin Desk engine). Then give totals and a markdown download link using download_url. Never invent CSV rows.
+- For "today / this week / this month" date ranges, use the Current time section injected each request (Pacific).
 
 ## API hygiene (DBS was warned about oversized pulls)
 - Keep searches small (default page sizes are already conservative).
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
   }
 
   const learnings = mergeClientLearnings(body.learnings);
-  const system = `${BASE_SYSTEM_PROMPT}\n\n${formatLearningsForPrompt(learnings)}`;
+  const system = `${BASE_SYSTEM_PROMPT}\n\n${pacificNowContext()}\n\n${formatLearningsForPrompt(learnings)}`;
 
   try {
     const result = streamText({
